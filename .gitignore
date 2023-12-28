@@ -1,0 +1,4 @@
+.idea
+rootfs/
+docker_entrypoint.sh
+dispatcher.tar.gz

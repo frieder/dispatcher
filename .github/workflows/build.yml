@@ -1,0 +1,118 @@
+name: Container Image
+run-name: Container Image (${{ inputs.version }})
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: The SDK version to build the image from
+        type: choice
+        options:
+          - stable
+          - latest
+        required: true
+        default: stable
+
+env:
+  REGISTRY: ghcr.io
+  NAMESPACE: frieder
+
+jobs:
+  dispatcher:
+    name: Build Dispatcher Image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Container Registry Login
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Prepare Build Data
+        id: init
+        run: |
+          curl -u "${{ secrets.REPO_USER }}:${{ secrets.REPO_PASS }}" \
+            -o ./versions.json \
+            -L ${{ secrets.REPO_URL }}/repository/files/sdk/versions.json
+          export value=$(jq -r '.${{ inputs.version }}' ./versions.json)
+          echo "binary=$(echo $value)" >> $GITHUB_OUTPUT
+          echo "version=$(echo $value | grep -oP 'aem-sdk-\K\d+\.\d+')" >> $GITHUB_OUTPUT
+          echo "date=$(date -u +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+          echo "rev=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Download AEM SDK Archive
+        id: dispatcher
+        run: |
+          curl -u "${{ secrets.REPO_USER }}:${{ secrets.REPO_PASS }}" \
+               -o ./aem-sdk.zip \
+               -L ${{ secrets.REPO_URL }}/repository/files/sdk/archives/${{ steps.init.outputs.binary }}
+          unzip aem-sdk.zip
+          sh ./aem-sdk-dispatcher-tools-*-unix.sh
+          echo "version=$(find . -name dispatcher-sdk-* | cut -d '-' -f3)" >> $GITHUB_OUTPUT
+
+      - name: Push Adobe Container Image (AMD64)
+        run: |
+          cd ./dispatcher-sdk-*/lib
+          docker load < ./dispatcher-publish-amd64.tar.gz
+          docker tag adobe/aem-cs/dispatcher-publish:${{ steps.dispatcher.outputs.version }} \
+                      ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/dispatcher:adobe-${{ steps.dispatcher.outputs.version }}-amd64          
+          docker push ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/dispatcher:adobe-${{ steps.dispatcher.outputs.version }}-amd64
+
+      - name: Push Adobe Container Image (ARM64)
+        run: |
+          cd ./dispatcher-sdk-*/lib
+          docker load < ./dispatcher-publish-arm64.tar.gz
+          docker tag adobe/aem-cs/dispatcher-publish:${{ steps.dispatcher.outputs.version }} \
+                      ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/dispatcher:adobe-${{ steps.dispatcher.outputs.version }}-arm64
+          docker push ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/dispatcher:adobe-${{ steps.dispatcher.outputs.version }}-arm64
+
+      - name: Push Adobe Container Image (Multiarch)
+        run: |
+          docker manifest create ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/dispatcher:adobe-${{ steps.dispatcher.outputs.version }} \
+              ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/dispatcher:adobe-${{ steps.dispatcher.outputs.version }}-amd64 \
+              ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/dispatcher:adobe-${{ steps.dispatcher.outputs.version }}-arm64
+          docker manifest push ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/dispatcher:adobe-${{ steps.dispatcher.outputs.version }}
+
+      #- name: Get & Modify Entrypoint Script
+      #  run: |
+      #    mkdir ./rootfs
+      #    CT_ID=$(docker create ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/dispatcher:adobe-${{ steps.dispatcher.outputs.version }})
+      #    docker export ${CT_ID} -o ./dispatcher.tar.gz
+      #    tar -xf ./dispatcher.tar.gz -C ./rootfs
+      #    ENTRY_SCRIPT=$(cat ./rootfs/docker_entrypoint.sh)
+      #    rm ./dispatcher.tar.gz
+      #    docker rm $CT_ID
+      #    rm -rf ./rootfs
+      #    echo $ENTRY_SCRIPT > ./docker_entrypoint.sh
+      #    sed -i '2i\sh /dispatcher_pid.sh' ./docker_entrypoint.sh
+      #    cat ./docker_entrypoint.sh
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build & Push Custom Container Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          build-args: |
+            PARENT=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/dispatcher:adobe-${{ steps.dispatcher.outputs.version }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/dispatcher:${{ inputs.version }}
+            ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/dispatcher:${{ steps.init.outputs.version }}
+          labels: |
+            org.opencontainers.image.title=AEM Dispatcher Container Image
+            org.opencontainers.image.url=https://github.com/frieder/dispatcher
+            org.opencontainers.image.created=${{ steps.init.outputs.date }}
+            org.opencontainers.image.revision=${{ steps.init.outputs.rev }}
+            org.opencontainers.image.version=${{ steps.init.outputs.version }}
+
+
