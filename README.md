@@ -4,7 +4,7 @@ A container image to run Adobe Dispatcher in a container. It is based on the
 container images provided by Adobe's SDK but adds the capability to change
 the user and group ID of the Apache user inside the container via environment
 variables at startup. This is useful to prevent issues on Linux-based host 
-systems where ID 100 is assigned to system user accounts.
+systems where ID 100 is assigned to system/service accounts.
 
 Also check out https://github.com/frieder/aem for a container image of Adobe
 Experience Manager (AEM) and https://github.com/frieder/aemdev for an example 
@@ -85,18 +85,19 @@ Before you can start building the image you must have the original dispatcher co
 image available in some private container registry. The build pipeline at 
 [.github/workflows/build.yml](.github/workflows/build.yml) shows how to download the SDK
 archive first, then load the container images from
-the archive and finally pushing it to a private container registry. Once avialable,
+the archive and finally pushing it to a private container registry. Once available,
 the new container image can be built by running the following command.
 
 ```shell
 docker build \
-  --build-arg PARENT="ghcr.io/frieder/dispatcher:adobe-2.0.193" \
+  --build-arg PARENT="ghcr.io/frieder/dispatcher:adobe-latest" \
   --tag ghcr.io/frieder/dispatcher:latest \
   .
 ```
 
-The value of ´PARENT´ must point to an existing image in a private registry. Also consider 
-using [Docker buildx](https://docs.docker.com/engine/reference/commandline/buildx/)
+The value of ´PARENT´ must point to an existing image in a private registry (e.g. `adobe-2.0.193`,
+`adobe-latest` or `adobe-2023.12`). Also consider using 
+[Docker buildx](https://docs.docker.com/engine/reference/commandline/buildx/)
 to create native container images for different platforms like `amd64` and `arm64`. This
 can greatly improve the performance of the local AEM container instance (e.g. when
 using Macbooks). An example on how to do this can also be found in the GH build pipeline.

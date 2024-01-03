@@ -79,7 +79,18 @@ jobs:
               ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/dispatcher:adobe-${{ steps.dispatcher.outputs.version }}-amd64 \
               ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/dispatcher:adobe-${{ steps.dispatcher.outputs.version }}-arm64
           docker manifest push ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/dispatcher:adobe-${{ steps.dispatcher.outputs.version }}
+          
+          docker manifest create ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/dispatcher:adobe-${{ inputs.version }} \
+              ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/dispatcher:adobe-${{ steps.dispatcher.outputs.version }}-amd64 \
+              ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/dispatcher:adobe-${{ steps.dispatcher.outputs.version }}-arm64
+          docker manifest push ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/dispatcher:adobe-${{ inputs.version }}
+          
+          docker manifest create ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/dispatcher:adobe-${{ steps.init.outputs.version }} \
+              ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/dispatcher:adobe-${{ steps.dispatcher.outputs.version }}-amd64 \
+              ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/dispatcher:adobe-${{ steps.dispatcher.outputs.version }}-arm64
+          docker manifest push ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/dispatcher:adobe-${{ steps.init.outputs.version }}
 
+      # Alternative approach to modify Adobe's ./docker_Entrypoint.sh instead of replacing it with own entrypoint script
       #- name: Get & Modify Entrypoint Script
       #  run: |
       #    mkdir ./rootfs
