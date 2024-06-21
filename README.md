@@ -82,6 +82,13 @@ docker stop dispatcher (-t 30)
 
 # How To Build
 
+> The default Dispatcher image from Adobe is working fine as long as you either work on 
+> MacOS/Windows or you don't mount the Apache log directory to a persistent volume. On
+> Linux however this will result in potential permission issues as the Apache user inside
+> the container is running with with a different UID than the host user. With this custom
+> image a different entrypoint script is used to modify the Apache service user's ID. Check
+> [dispatcher_pid.sh](dispatcher_pid.sh) for more details.
+
 Before you can start building the image you must have the original dispatcher container 
 image available in some private container registry. The build pipeline at 
 [.github/workflows/build.yml](.github/workflows/build.yml) shows how to download the SDK
@@ -96,8 +103,8 @@ docker build \
   .
 ```
 
-The value of ´PARENT´ must point to an existing image in a private registry (e.g. `adobe-2.0.193`,
-`adobe-latest` or `adobe-2023.12`). Also consider using 
+The value of ´PARENT´ must point to an existing image in a private registry (e.g. 
+`adobe-2.0.193`, `adobe-latest` or `adobe-2023.12`). Also consider using 
 [Docker buildx](https://docs.docker.com/engine/reference/commandline/buildx/)
 to create native container images for different platforms like `amd64` and `arm64`. This
 can greatly improve the performance of the local AEM container instance (e.g. when

@@ -105,6 +105,11 @@ jobs:
       #    sed -i '2i\sh /dispatcher_pid.sh' ./docker_entrypoint.sh
       #    cat ./docker_entrypoint.sh
 
+      - name: Copy Dispatcher SDK files to sdk folder
+        run: |
+          cp -r ./dispatcher-sdk-*/lib sdk/lib
+          cp -r ./dispatcher-sdk-*/bin sdk/bin
+
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
 
