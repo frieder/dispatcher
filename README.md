@@ -54,6 +54,7 @@ PGID=$(id -g)
 
 docker run -d \
   --name dispatcher \
+  -e TZ=Europe/Zurich \
   -e PUID="${PUID}" \
   -e PGID="${PGID}" \
   -e AEM_HOST="publish" \
